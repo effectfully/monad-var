@@ -596,4 +596,3 @@ instance MonadMutate  IO TMVar where
 instance MonadMutate_ IO TMVar where
   mutate_ = atomically .* mutate_
   {-# INLINE mutate_ #-}
-
