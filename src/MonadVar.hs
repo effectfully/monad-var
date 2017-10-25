@@ -10,9 +10,9 @@ module MonadVar
   , MonadMutateM_(..)
   , MonadMutate(..)
   , MonadMutate_(..)
-  , defaultLockMaskedWrite
+  , defaultLockUnsafeWrite
   , defaultReadWriteSwap
-  , defaultLockMaskedSwap
+  , defaultLockUnsafeSwap
   , defaultReadWriteMutateM
   , defaultReadWriteMutateM_
   , defaultReadWriteMutate
@@ -93,20 +93,20 @@ class MonadWrite m v => MonadMutate_ m v where
 
 -- Default implementations.
 
-defaultLockMaskedWrite
+defaultLockUnsafeWrite
   :: MonadLock m v => v a -> a -> m ()
-defaultLockMaskedWrite v y = tryHold v *> fill v y
-{-# INLINE defaultLockMaskedWrite #-}
+defaultLockUnsafeWrite v y = tryHold v *> fill v y
+{-# INLINE defaultLockUnsafeWrite #-}
 
 defaultReadWriteSwap
   :: (MonadRead m v, MonadWrite m v) => v a -> a -> m a
 defaultReadWriteSwap v y = read v <* write v y
 {-# INLINE defaultReadWriteSwap #-}
 
-defaultLockMaskedSwap
+defaultLockUnsafeSwap
   :: MonadLock m v => v a -> a -> m a
-defaultLockMaskedSwap v y = hold v <* fill v y
-{-# INLINE defaultLockMaskedSwap #-}
+defaultLockUnsafeSwap v y = hold v <* fill v y
+{-# INLINE defaultLockUnsafeSwap #-}
 
 defaultReadWriteMutateM
   :: (MonadRead m v, MonadWrite m v) => v a -> (a -> m (a, b)) -> m b
@@ -384,11 +384,11 @@ instance MonadRead  IO MVar where
   {-# INLINE read #-}
 
 instance MonadWrite IO MVar where
-  write = mask_ .* defaultLockMaskedWrite
+  write = mask_ .* defaultLockUnsafeWrite
   {-# INLINE write #-}
 
 instance MonadSwap  IO MVar where
-  swap = mask_ .* defaultLockMaskedSwap
+  swap = mask_ .* defaultLockUnsafeSwap
   {-# INLINE swap #-}
 
 instance IO ~ io => MonadMutateM io IO MVar where
@@ -508,11 +508,11 @@ instance MonadRead  STM TMVar where
   {-# INLINE read #-}
 
 instance MonadWrite STM TMVar where
-  write = defaultLockMaskedWrite
+  write = defaultLockUnsafeWrite
   {-# INLINE write #-}
 
 instance MonadSwap  STM TMVar where
-  swap = defaultLockMaskedSwap
+  swap = defaultLockUnsafeSwap
   {-# INLINE swap #-}
 
 instance STM ~ stm => MonadMutateM  stm STM TMVar where
