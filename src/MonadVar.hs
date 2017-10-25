@@ -10,7 +10,7 @@ module MonadVar
   , MonadMutateM_(..)
   , MonadMutate(..)
   , MonadMutate_(..)
-  , defaultLockWriteMasked
+  , defaultLockMaskedWrite
   , defaultReadWriteSwap
   , defaultLockMaskedSwap
   , defaultReadWriteMutateM
@@ -93,10 +93,10 @@ class MonadWrite m v => MonadMutate_ m v where
 
 -- Default implementations.
 
-defaultLockWriteMasked
+defaultLockMaskedWrite
   :: MonadLock m v => v a -> a -> m ()
-defaultLockWriteMasked v y = tryHold v *> fill v y
-{-# INLINE defaultLockWriteMasked #-}
+defaultLockMaskedWrite v y = tryHold v *> fill v y
+{-# INLINE defaultLockMaskedWrite #-}
 
 defaultReadWriteSwap
   :: (MonadRead m v, MonadWrite m v) => v a -> a -> m a
@@ -384,7 +384,7 @@ instance MonadRead  IO MVar where
   {-# INLINE read #-}
 
 instance MonadWrite IO MVar where
-  write = mask_ .* defaultLockWriteMasked
+  write = mask_ .* defaultLockMaskedWrite
   {-# INLINE write #-}
 
 instance MonadSwap  IO MVar where
@@ -508,7 +508,7 @@ instance MonadRead  STM TMVar where
   {-# INLINE read #-}
 
 instance MonadWrite STM TMVar where
-  write = defaultLockWriteMasked
+  write = defaultLockMaskedWrite
   {-# INLINE write #-}
 
 instance MonadSwap  STM TMVar where
