@@ -1,6 +1,6 @@
 name:                monad-var
 version:             0.1.0.0
--- synopsis:
+synopsis:            A library that provides generic operations over variables generalized here and there to arbitrary effectful containers just in case.
 -- description:
 homepage:            https://github.com/effectfully/monad-var#readme
 license:             BSD3
