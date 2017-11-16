@@ -2,13 +2,13 @@ name:                monad-var
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/githubuser/MonadVar#readme
+homepage:            https://github.com/effectfully/monad-var#readme
 license:             BSD3
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2017 Author name here
-category:            Web
+author:              effectfully
+maintainer:          effectfully@gmail.com
+copyright:           2017 effectfully
+category:            Control
 build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
@@ -24,4 +24,4 @@ library
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/MonadVar
+  location: https://github.com/effectfully/monad-var

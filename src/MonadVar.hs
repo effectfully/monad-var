@@ -6,8 +6,10 @@ module MonadVar
   , MonadRead(..)
   , MonadWrite(..)
   , MonadSwap(..)
+  , MonadFoldMutateM(..)
   , MonadMutateM(..)
   , MonadMutateM_(..)
+  , MonadFoldMutate(..)
   , MonadMutate(..)
   , MonadMutate_(..)
   , defaultLockUnsafeWrite
@@ -54,60 +56,108 @@ x <&> f = f <$> x
 g .* f = \x y -> g (f x y)
 {-# INLINE (.*) #-}
 
+-- | A type class for containers that can be created and
+-- initialized with a single value.
 class Monad m => MonadNew m v where
   new :: a -> m (v a)
 
+-- | A type class for at most one element containers.
+-- An attempt to get a value from an empty container or
+-- to put a value into a full container results in a block.
+-- I.e. this is a type class for 'MVar'-like things.
 class (MonadRead m v, Monad m) => MonadLock m v where
+  -- | Get a value from a container. Block on empty.
+  -- A la 'takeMVar'.
   hold     :: v a -> m a
+  -- | Put a value to a container. Block on full.
+  -- A la 'putMVar'.
   fill     :: v a -> a -> m ()
+  -- | Get a value from a container. Return 'Nothing' on empty.
+  -- A la 'tryTakeMVar'.
   tryHold  :: v a -> m (Maybe a)
+  -- | Put a value to a container. Return 'Nothing' on full.
+  -- A la 'tryPutMVar'.
   tryFill  :: v a -> a -> m Bool
+  -- | Read a value from a container. Return 'Nothing' on empty.
+  -- A la 'tryReadMVar'.
   tryRead  :: v a -> m (Maybe a)
+  -- | Create an empty container.
+  -- A la 'newEmptyMVar'.
   newEmpty :: m (v a)
+  -- | Check whether a container is empty.
+  -- A la 'isEmptyMVar'.
   isEmpty  :: v a -> m Bool
 
+-- | A type class for containers from which a single value can be read.
 class Monad m => MonadRead m v where
   read :: v a -> m a
 
+-- | A type class for containers to which a single value can be written.
 class Monad m => MonadWrite m v where
   write :: v a -> a -> m ()
 
+-- | A type class for containers for which one value can be replaced
+-- with an another (not necessarily at the same position).
 class Monad m => MonadSwap m v where
+  -- | Replace a value from a container by a new one and
+  -- return the original value.
   swap :: v a -> a -> m a
 
+-- | A type class for mutable containers which can be monadically
+-- mapped and folded over simultaneously.
+class (MonadRead m v, MonadWrite m v) => MonadFoldMutateM m n v where
+  foldMutateM :: Monoid b => v a -> (a -> m (a, b)) -> n b
+
+-- | A type class for one-element containers which can be monadically
+-- mapped and folded over simultaneously. These are basically variables.
 class (MonadRead m v, MonadWrite m v) => MonadMutateM m n v where
+  -- | Monadically mutate a variable and return an additional value.
   mutateM :: v a -> (a -> m (a, b)) -> n b
 
+-- | A type class for mutable containers which can be monadically mapped over.
 class MonadWrite m v => MonadMutateM_ m n v where
   mutateM_ :: v a -> (a -> m a) -> n ()
 
+-- | A type class for mutable containers which can be
+-- mapped and folded over simultaneously.
+class MonadWrite m v => MonadFoldMutate m v where
+  foldMutate :: Monoid b => v a -> (a -> (a, b)) -> m b
+
+-- | A type class for one-element containers which can be
+-- mapped and folded over simultaneously. These are basically variables.
 class (MonadRead m v, MonadWrite m v) => MonadMutate m v where
+  -- | Mutate a variable and return an additional value.
   mutate :: v a -> (a -> (a, b)) -> m b
 
+-- | A type class for mutable containers which can be mapped over.
 class MonadWrite m v => MonadMutate_ m v where
   mutate_ :: v a -> (a -> a) -> m ()
 
--- What about this and similar classes?
+-- It'd be nice to also have this and similar classes.
 -- class MonadLockMutate_ m v where
 --   lockMutate_ :: v a -> (Maybe a -> Maybe a) -> m ()
 
 -- Default implementations.
 
+-- | Default exception-unsafe 'write' for 'MonadLock' entities.
 defaultLockUnsafeWrite
   :: MonadLock m v => v a -> a -> m ()
 defaultLockUnsafeWrite v y = tryHold v *> fill v y
 {-# INLINE defaultLockUnsafeWrite #-}
 
+-- | Default 'swap' for 'MonadRead' and 'MonadWrite' entities.
 defaultReadWriteSwap
   :: (MonadRead m v, MonadWrite m v) => v a -> a -> m a
 defaultReadWriteSwap v y = read v <* write v y
 {-# INLINE defaultReadWriteSwap #-}
 
+-- | Default exception-unsafe 'swap' for 'MonadLock' entities.
 defaultLockUnsafeSwap
   :: MonadLock m v => v a -> a -> m a
 defaultLockUnsafeSwap v y = hold v <* fill v y
 {-# INLINE defaultLockUnsafeSwap #-}
 
+-- | Default 'mutateM' for 'MonadRead' and 'MonadWrite' entities.
 defaultReadWriteMutateM
   :: (MonadRead m v, MonadWrite m v) => v a -> (a -> m (a, b)) -> m b
 defaultReadWriteMutateM v f = do
@@ -117,6 +167,7 @@ defaultReadWriteMutateM v f = do
   return z
 {-# INLINE defaultReadWriteMutateM #-}
 
+-- | Default 'mutateM_' for 'MonadRead' and 'MonadWrite' entities.
 defaultReadWriteMutateM_
   :: (MonadRead m v, MonadWrite m v) => v a -> (a -> m a) -> m ()
 defaultReadWriteMutateM_ v f = do
@@ -125,6 +176,7 @@ defaultReadWriteMutateM_ v f = do
   write v y
 {-# INLINE defaultReadWriteMutateM_ #-}
 
+-- | Default 'mutate' for 'MonadRead' and 'MonadWrite' entities.
 defaultReadWriteMutate
   :: (MonadRead m v, MonadWrite m v) => v a -> (a -> (a, b)) -> m b
 defaultReadWriteMutate v f = do
@@ -134,6 +186,7 @@ defaultReadWriteMutate v f = do
   return z
 {-# INLINE defaultReadWriteMutate #-}
 
+-- | Default 'mutate_' for 'MonadRead' and 'MonadWrite' entities.
 defaultReadWriteMutate_
   :: (MonadRead m v, MonadWrite m v) => v a -> (a -> a) -> m ()
 defaultReadWriteMutate_ v f = do
@@ -142,6 +195,7 @@ defaultReadWriteMutate_ v f = do
   write v y
 {-# INLINE defaultReadWriteMutate_ #-}
 
+-- | Default exception-unsafe 'mutateM' for 'MonadLock' entities.
 defaultLockUnsafeMutateM
   :: MonadLock m v => v a -> (a -> m (a, b)) -> m b
 defaultLockUnsafeMutateM v f = do
@@ -151,6 +205,7 @@ defaultLockUnsafeMutateM v f = do
   return z
 {-# INLINE defaultLockUnsafeMutateM #-}
 
+-- | Default exception-unsafe 'mutateM_' for 'MonadLock' entities.
 defaultLockUnsafeMutateM_
   :: MonadLock m v => v a -> (a -> m a) -> m ()
 defaultLockUnsafeMutateM_ v f = do
@@ -159,6 +214,7 @@ defaultLockUnsafeMutateM_ v f = do
   fill v y
 {-# INLINE defaultLockUnsafeMutateM_ #-}
 
+-- | Default exception-unsafe 'mutate' for 'MonadLock' entities.
 defaultLockUnsafeMutate
   :: MonadLock m v => v a -> (a -> (a, b)) -> m b
 defaultLockUnsafeMutate v f = do
@@ -168,6 +224,7 @@ defaultLockUnsafeMutate v f = do
   return z
 {-# INLINE defaultLockUnsafeMutate #-}
 
+-- | Default exception-unsafe 'mutate_' for 'MonadLock' entities.
 defaultLockUnsafeMutate_
   :: MonadLock m v => v a -> (a -> a) -> m ()
 defaultLockUnsafeMutate_ v f = do
@@ -176,18 +233,17 @@ defaultLockUnsafeMutate_ v f = do
   fill v y
 {-# INLINE defaultLockUnsafeMutate_ #-}
 
--- See "Parallel and Concurrent Programming in Haskell",
--- section "MVar as a Container for Shared State".
-
+-- | Default 'mutateM' for 'MonadLock IO' entities.
 defaultLockIOMutateM :: MonadLock IO v => v a -> (a -> IO (a, b)) -> IO b
 defaultLockIOMutateM v f = mask $ \restore -> do
   x      <- hold v
   (y, z) <- restore (f x >>= evaluate) `onException` fill v x
-  fill v y
-  evaluate y
+  fill v y    -- See "Parallel and Concurrent Programming in Haskell",
+  evaluate y  -- the "MVar as a Container for Shared State" section.
   return z
 {-# INLINE defaultLockIOMutateM #-}
 
+-- | Default 'mutateM_' for 'MonadLock IO' entities
 defaultLockIOMutateM_ :: MonadLock IO v => v a -> (a -> IO a) -> IO ()
 defaultLockIOMutateM_ v f = mask $ \restore -> do
   x <- hold v
@@ -199,41 +255,53 @@ defaultLockIOMutateM_ v f = mask $ \restore -> do
 
 -- Additional functions.
 
+-- | Monadically mutate a variable and also return its old value
+-- along with an additional value.
 postMutateM
   :: MonadMutateM m n v => v a -> (a -> m (a, b)) -> n (a, b)
 postMutateM v f = mutateM v $ \x -> f x <&> \(y, z) -> (y, (x, z))
 {-# INLINE postMutateM #-}
 
+-- | Monadically mutate a variable and also return its new value
+-- along with an additional value.
 preMutateM
   :: MonadMutateM m n v => v a -> (a -> m (a, b)) -> n (a, b)
 preMutateM v f = mutateM v $ \x -> f x <&> \(y, z) -> (y, (y, z))
 {-# INLINE preMutateM #-}
 
+-- | Monadically mutate a variable and also return its old value.
 postMutateM_
   :: MonadMutateM m n v => v a -> (a -> m a) -> n a
 postMutateM_ v f = mutateM v $ \x -> f x <&> \y -> (y, x)
 {-# INLINE postMutateM_ #-}
 
+-- | Monadically mutate a variable and also return its new value.
 preMutateM_
   :: MonadMutateM m n v => v a -> (a -> m a) -> n a
 preMutateM_ v f = mutateM v $ \x -> f x <&> \y -> (y, y)
 {-# INLINE preMutateM_ #-}
 
+-- | Mutate a variable and also return its old value
+-- along with an additional value.
 postMutate
   :: MonadMutate m v => v a -> (a -> (a, b)) -> m (a, b)
 postMutate v f = mutate v $ \x -> f x & \(y, z) -> (y, (x, z))
 {-# INLINE postMutate #-}
 
+-- | Mutate a variable and also return its new value
+-- along with an additional value.
 preMutate
   :: MonadMutate m v => v a -> (a -> (a, b)) -> m (a, b)
 preMutate v f = mutate v $ \x -> f x & \(y, z) -> (y, (y, z))
 {-# INLINE preMutate #-}
 
+-- | Mutate a variable and also return its old value.
 postMutate_
   :: MonadMutate m v => v a -> (a -> a) -> m a
 postMutate_ v f = mutate v $ \x -> f x & \y -> (y, x)
 {-# INLINE postMutate_ #-}
 
+-- | Mutate a variable and also return its new value.
 preMutate_
   :: MonadMutate m v => v a -> (a -> a) -> m a
 preMutate_ v f = mutate v $ \x -> f x & \y -> (y, y)
