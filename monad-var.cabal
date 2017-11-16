@@ -16,9 +16,9 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     MonadVar
-  build-depends:       base >= 4.7 && < 5,
-                       transformers,
-                       stm
+  build-depends:       base         >= 4.7 && < 5,
+                       transformers >= 0.4 && < 0.6,
+                       stm          >= 2.2 && < 2.5
   default-language:    Haskell2010
   ghc-options:         -O2 -Wall -fno-warn-unused-do-bind
 
