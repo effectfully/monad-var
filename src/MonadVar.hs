@@ -105,7 +105,7 @@ class Monad m => MonadSwap m v where
 
 -- | A type class for mutable containers which can be monadically
 -- mapped and folded over simultaneously.
-class (MonadRead m v, MonadWrite m v) => MonadFoldMutateM m n v where
+class MonadFoldMutateM m n v where
   foldMutateM :: Monoid b => v a -> (a -> m (a, b)) -> n b
 
 -- | A type class for one-element containers which can be monadically
@@ -120,7 +120,7 @@ class MonadWrite m v => MonadMutateM_ m n v where
 
 -- | A type class for mutable containers which can be
 -- mapped and folded over simultaneously.
-class MonadWrite m v => MonadFoldMutate m v where
+class MonadFoldMutate m v where
   foldMutate :: Monoid b => v a -> (a -> (a, b)) -> m b
 
 -- | A type class for one-element containers which can be
@@ -233,7 +233,7 @@ defaultLockUnsafeMutate_ v f = do
   fill v y
 {-# INLINE defaultLockUnsafeMutate_ #-}
 
--- | Default 'mutateM' for 'MonadLock IO' entities.
+-- | Default 'mutateM' for 'MonadLock' 'IO' entities.
 defaultLockIOMutateM :: MonadLock IO v => v a -> (a -> IO (a, b)) -> IO b
 defaultLockIOMutateM v f = mask $ \restore -> do
   x      <- hold v
@@ -243,7 +243,7 @@ defaultLockIOMutateM v f = mask $ \restore -> do
   return z
 {-# INLINE defaultLockIOMutateM #-}
 
--- | Default 'mutateM_' for 'MonadLock IO' entities
+-- | Default 'mutateM_' for 'MonadLock' 'IO' entities
 defaultLockIOMutateM_ :: MonadLock IO v => v a -> (a -> IO a) -> IO ()
 defaultLockIOMutateM_ v f = mask $ \restore -> do
   x <- hold v
