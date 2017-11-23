@@ -28,9 +28,20 @@ _Of :: (s -> a) -> LensLike f s b a b
 _Of f g = g . f
 {-# INLINE _Of #-}
 
--- | Go down by '_L' into a data structure and apply '_M' to the result.
--- This throws away the non-'_L' part of a structure,
--- e.g. @('a', ('b', 'c')) & _2 ./ _2 %~ succ@ results in @('b','d')@.
+-- | Go down by the first lens into a data structure and
+-- apply the second lens to the result.
+-- This throws away the part of the structure skipped by the first lens, e.g.
+--
+-- @
+-- ('a', ('b', 'c')) & _2 ./ _2 %~ succ
+-- @
+--
+-- results in
+--
+-- @
+-- ('b','d')
+-- @
+--
 (./)
   :: LensLike (Const s) v x s y
   -> LensLike  f        s t a b
@@ -38,9 +49,13 @@ _Of f g = g . f
 _L ./ _M = _Of (^. _L) . _M
 {-# INLINE (./) #-}
 
--- | Make a lens that runs with an effect out of a simple lens.
--- E.g. @("a", "b") & effectful _2 .~ getLine@ asks for a string and
--- replaces the second element of the tuple with it.
+-- | Make a lens that runs with an effect out of a simple lens. E.g.
+--
+-- @
+-- ("a", "b") & effectful _2 .~ getLine
+-- @
+--
+-- asks for a string and replaces the second element of the tuple with it.
 effectful :: Functor f => Lens s t a b -> Lens s (f t) a (f b)
 effectful _L f = getCompose . _L (Compose . f)
 {-# INLINE effectful #-}
@@ -55,25 +70,39 @@ _L .! _M = effectful _L . _M
 {-# INLINE (.!) #-}
 
 -- | A monadic setter for a variable. E.g.
+--
 -- @
 -- do
 --   v <- newIORef 'a'
 --   v & _VarM %~ \a -> succ a <$ putStr (show a)
 --   readIORef v >>= print
 -- @
--- prints @'a''b'@.
+--
+-- prints
+--
+-- @
+-- 'a''b'
+-- @
+--
 _VarM :: forall m n v a. MonadMutateM_ m n v => ASetter (v a) (n ()) a (m a)
 _VarM f v = Identity . mutateM_ v $ runIdentity . f
 {-# INLINE _VarM #-}
 
 -- | A setter for a variable. E.g.
+--
 -- @
 -- do
 --   v <- newIORef 'a'
 --   v & _Var %~ succ
 --   readIORef v >>= print
 -- @
--- prints @'b'@.
+--
+-- prints
+--
+-- @
+-- 'b'
+-- @
+--
 _Var :: forall m v a. MonadMutate_ m v => ASetter (v a) (m ()) a a
 _Var f v = Identity . mutate_ v $ runIdentity . f
 {-# INLINE _Var #-}
