@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 module MonadVar.Lens
   ( (./)
+  , effectful
   , (.!)
   , _VarM
   , _Var
@@ -37,10 +38,14 @@ _Of f g = g . f
 _L ./ _M = _Of (^. _L) . _M
 {-# INLINE (./) #-}
 
+-- | Make a lens that runs with an effect out of a simple lens.
+-- E.g. @("a", "b") & effectful _2 .~ getLine@ asks for a string and
+-- replaces the second element of the tuple with it.
 effectful :: Functor f => Lens s t a b -> Lens s (f t) a (f b)
 effectful _L f = getCompose . _L (Compose . f)
 {-# INLINE effectful #-}
 
+-- | Compose a simple lens and a lens that runs with some effect.
 (.!)
   :: (Functor f, Functor g)
   => Lens       v  w    s t
@@ -49,10 +54,26 @@ effectful _L f = getCompose . _L (Compose . f)
 _L .! _M = effectful _L . _M
 {-# INLINE (.!) #-}
 
+-- | A monadic setter for a variable. E.g.
+-- @
+-- do
+--   v <- newIORef 'a'
+--   v & _VarM %~ \a -> succ a <$ putStr (show a)
+--   readIORef v >>= print
+-- @
+-- prints @'a''b'@.
 _VarM :: forall m n v a. MonadMutateM_ m n v => ASetter (v a) (n ()) a (m a)
 _VarM f v = Identity . mutateM_ v $ runIdentity . f
 {-# INLINE _VarM #-}
 
+-- | A setter for a variable. E.g.
+-- @
+-- do
+--   v <- newIORef 'a'
+--   v & _Var %~ succ
+--   readIORef v >>= print
+-- @
+-- prints @'b'@.
 _Var :: forall m v a. MonadMutate_ m v => ASetter (v a) (m ()) a a
 _Var f v = Identity . mutate_ v $ runIdentity . f
 {-# INLINE _Var #-}
