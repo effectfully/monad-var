@@ -33,13 +33,13 @@ _Of f g = g . f
 -- This throws away the part of the structure skipped by the first lens, e.g.
 --
 -- @
--- ('a', ('b', 'c')) & _2 ./ _2 %~ succ
+-- (\'a\', (\'b\', \'c\')) & _2 ./ _2 %~ succ
 -- @
 --
 -- results in
 --
 -- @
--- ('b','d')
+-- (\'b\',\'d\')
 -- @
 --
 (./)
@@ -52,7 +52,7 @@ _L ./ _M = _Of (^. _L) . _M
 -- | Make a lens that runs with an effect out of a simple lens. E.g.
 --
 -- @
--- ("a", "b") & effectful _2 .~ getLine
+-- (\"a\", \"b\") & effectful _2 .~ getLine
 -- @
 --
 -- asks for a string and replaces the second element of the tuple with it.
@@ -73,15 +73,15 @@ _L .! _M = effectful _L . _M
 --
 -- @
 -- do
---   v <- newIORef 'a'
---   v & _VarM %~ \a -> succ a <$ putStr (show a)
+--   v <- newIORef \'a\'
+--   v & _VarM %~ \\a -> succ a <$ putStr (show a)
 --   readIORef v >>= print
 -- @
 --
 -- prints
 --
 -- @
--- 'a''b'
+-- \'a\'\'b\'
 -- @
 --
 _VarM :: forall m n v a. MonadMutateM_ m n v => ASetter (v a) (n ()) a (m a)
@@ -92,7 +92,7 @@ _VarM f v = Identity . mutateM_ v $ runIdentity . f
 --
 -- @
 -- do
---   v <- newIORef 'a'
+--   v <- newIORef \'a\'
 --   v & _Var %~ succ
 --   readIORef v >>= print
 -- @
@@ -100,7 +100,7 @@ _VarM f v = Identity . mutateM_ v $ runIdentity . f
 -- prints
 --
 -- @
--- 'b'
+-- \'b\'
 -- @
 --
 _Var :: forall m v a. MonadMutate_ m v => ASetter (v a) (m ()) a a
