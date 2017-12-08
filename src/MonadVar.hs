@@ -6,33 +6,33 @@ module MonadVar
   , MonadRead(..)
   , MonadWrite(..)
   , MonadSwap(..)
-  , MonadFoldMutateM(..)
-  , MonadMutateM(..)
-  , MonadMutateM_(..)
-  , MonadFoldMutate(..)
-  , MonadMutate(..)
   , MonadMutate_(..)
+  , MonadMutate(..)
+  , MonadFoldMutate(..)
+  , MonadMutateM_(..)
+  , MonadMutateM(..)
+  , MonadFoldMutateM(..)
   , defaultLockUnsafeWrite
   , defaultReadWriteSwap
   , defaultLockUnsafeSwap
-  , defaultReadWriteMutateM
-  , defaultReadWriteMutateM_
-  , defaultReadWriteMutate
   , defaultReadWriteMutate_
-  , defaultLockUnsafeMutateM
-  , defaultLockUnsafeMutateM_
-  , defaultLockUnsafeMutate
+  , defaultReadWriteMutate
+  , defaultReadWriteMutateM_
+  , defaultReadWriteMutateM
   , defaultLockUnsafeMutate_
-  , defaultLockIOMutateM
+  , defaultLockUnsafeMutate
+  , defaultLockUnsafeMutateM_
+  , defaultLockUnsafeMutateM
   , defaultLockIOMutateM_
-  , postMutateM
-  , preMutateM
-  , postMutateM_
-  , preMutateM_
-  , postMutate
-  , preMutate
+  , defaultLockIOMutateM
   , postMutate_
   , preMutate_
+  , postMutate
+  , preMutate
+  , postMutateM_
+  , preMutateM_
+  , postMutateM
+  , preMutateM
   ) where
 
 import           Prelude hiding (read)
@@ -103,35 +103,35 @@ class Monad m => MonadSwap m v where
   -- return the original value.
   swap :: v a -> a -> m a
 
--- | A type class for mutable containers which can be monadically
--- mapped and folded over simultaneously.
-class MonadFoldMutateM m n v where
-  foldMutateM :: Monoid b => v a -> (a -> m (a, b)) -> n b
+-- | A type class for mutable containers which can be mapped over.
+class MonadWrite m v => MonadMutate_ m v where
+  mutate_ :: v a -> (a -> a) -> m ()
 
--- | A type class for one-element containers which can be monadically
+-- | A type class for one-element containers which can be
 -- mapped and folded over simultaneously. These are basically variables.
-class (MonadRead m v, MonadWrite m v) => MonadMutateM m n v where
-  -- | Monadically mutate a variable and return an additional value.
-  mutateM :: v a -> (a -> m (a, b)) -> n b
-
--- | A type class for mutable containers which can be monadically mapped over.
-class MonadWrite m v => MonadMutateM_ m n v where
-  mutateM_ :: v a -> (a -> m a) -> n ()
+class (MonadRead m v, MonadMutate_ m v) => MonadMutate m v where
+  -- | Mutate a variable and return an additional value.
+  mutate :: v a -> (a -> (a, b)) -> m b
 
 -- | A type class for mutable containers which can be
 -- mapped and folded over simultaneously.
 class MonadFoldMutate m v where
   foldMutate :: Monoid b => v a -> (a -> (a, b)) -> m b
 
--- | A type class for one-element containers which can be
--- mapped and folded over simultaneously. These are basically variables.
-class (MonadRead m v, MonadWrite m v) => MonadMutate m v where
-  -- | Mutate a variable and return an additional value.
-  mutate :: v a -> (a -> (a, b)) -> m b
+-- | A type class for mutable containers which can be monadically mapped over.
+class MonadMutate_ m v => MonadMutateM_ f m v where
+  mutateM_ :: v a -> (a -> f a) -> m ()
 
--- | A type class for mutable containers which can be mapped over.
-class MonadWrite m v => MonadMutate_ m v where
-  mutate_ :: v a -> (a -> a) -> m ()
+-- | A type class for one-element containers which can be monadically
+-- mapped and folded over simultaneously. These are basically variables.
+class (MonadMutate m v, MonadMutateM_ f m v) => MonadMutateM f m v where
+  -- | Monadically mutate a variable and return an additional value.
+  mutateM :: v a -> (a -> f (a, b)) -> m b
+
+-- | A type class for mutable containers which can be monadically
+-- mapped and folded over simultaneously.
+class MonadFoldMutateM m n v where
+  foldMutateM :: Monoid b => v a -> (a -> m (a, b)) -> n b
 
 -- It'd be nice to also have this and similar classes.
 -- class MonadLockMutate_ m v where
@@ -157,24 +157,14 @@ defaultLockUnsafeSwap
 defaultLockUnsafeSwap v y = hold v <* fill v y
 {-# INLINE defaultLockUnsafeSwap #-}
 
--- | Default 'mutateM' for 'MonadRead' and 'MonadWrite' entities.
-defaultReadWriteMutateM
-  :: (MonadRead m v, MonadWrite m v) => v a -> (a -> m (a, b)) -> m b
-defaultReadWriteMutateM v f = do
+-- | Default 'mutate_' for 'MonadRead' and 'MonadWrite' entities.
+defaultReadWriteMutate_
+  :: (MonadRead m v, MonadWrite m v) => v a -> (a -> a) -> m ()
+defaultReadWriteMutate_ v f = do
   x <- read v
-  !(!y, z) <- f x
+  let !y = f x
   write v y
-  return z
-{-# INLINE defaultReadWriteMutateM #-}
-
--- | Default 'mutateM_' for 'MonadRead' and 'MonadWrite' entities.
-defaultReadWriteMutateM_
-  :: (MonadRead m v, MonadWrite m v) => v a -> (a -> m a) -> m ()
-defaultReadWriteMutateM_ v f = do
-  x <- read v
-  !y <- f x
-  write v y
-{-# INLINE defaultReadWriteMutateM_ #-}
+{-# INLINE defaultReadWriteMutate_ #-}
 
 -- | Default 'mutate' for 'MonadRead' and 'MonadWrite' entities.
 defaultReadWriteMutate
@@ -186,33 +176,33 @@ defaultReadWriteMutate v f = do
   return z
 {-# INLINE defaultReadWriteMutate #-}
 
--- | Default 'mutate_' for 'MonadRead' and 'MonadWrite' entities.
-defaultReadWriteMutate_
-  :: (MonadRead m v, MonadWrite m v) => v a -> (a -> a) -> m ()
-defaultReadWriteMutate_ v f = do
+-- | Default 'mutateM_' for 'MonadRead' and 'MonadWrite' entities.
+defaultReadWriteMutateM_
+  :: (MonadRead m v, MonadWrite m v) => v a -> (a -> m a) -> m ()
+defaultReadWriteMutateM_ v f = do
   x <- read v
-  let !y = f x
-  write v y
-{-# INLINE defaultReadWriteMutate_ #-}
-
--- | Default exception-unsafe 'mutateM' for 'MonadLock' entities.
-defaultLockUnsafeMutateM
-  :: MonadLock m v => v a -> (a -> m (a, b)) -> m b
-defaultLockUnsafeMutateM v f = do
-  x <- hold v
-  !(!y, z) <- f x
-  fill v y
-  return z
-{-# INLINE defaultLockUnsafeMutateM #-}
-
--- | Default exception-unsafe 'mutateM_' for 'MonadLock' entities.
-defaultLockUnsafeMutateM_
-  :: MonadLock m v => v a -> (a -> m a) -> m ()
-defaultLockUnsafeMutateM_ v f = do
-  x <- hold v
   !y <- f x
+  write v y
+{-# INLINE defaultReadWriteMutateM_ #-}
+
+-- | Default 'mutateM' for 'MonadRead' and 'MonadWrite' entities.
+defaultReadWriteMutateM
+  :: (MonadRead m v, MonadWrite m v) => v a -> (a -> m (a, b)) -> m b
+defaultReadWriteMutateM v f = do
+  x <- read v
+  !(!y, z) <- f x
+  write v y
+  return z
+{-# INLINE defaultReadWriteMutateM #-}
+
+-- | Default exception-unsafe 'mutate_' for 'MonadLock' entities.
+defaultLockUnsafeMutate_
+  :: MonadLock m v => v a -> (a -> a) -> m ()
+defaultLockUnsafeMutate_ v f = do
+  x <- hold v
+  let !y = f x
   fill v y
-{-# INLINE defaultLockUnsafeMutateM_ #-}
+{-# INLINE defaultLockUnsafeMutate_ #-}
 
 -- | Default exception-unsafe 'mutate' for 'MonadLock' entities.
 defaultLockUnsafeMutate
@@ -224,24 +214,24 @@ defaultLockUnsafeMutate v f = do
   return z
 {-# INLINE defaultLockUnsafeMutate #-}
 
--- | Default exception-unsafe 'mutate_' for 'MonadLock' entities.
-defaultLockUnsafeMutate_
-  :: MonadLock m v => v a -> (a -> a) -> m ()
-defaultLockUnsafeMutate_ v f = do
+-- | Default exception-unsafe 'mutateM_' for 'MonadLock' entities.
+defaultLockUnsafeMutateM_
+  :: MonadLock m v => v a -> (a -> m a) -> m ()
+defaultLockUnsafeMutateM_ v f = do
   x <- hold v
-  let !y = f x
+  !y <- f x
   fill v y
-{-# INLINE defaultLockUnsafeMutate_ #-}
+{-# INLINE defaultLockUnsafeMutateM_ #-}
 
--- | Default 'mutateM' for 'MonadLock' 'IO' entities.
-defaultLockIOMutateM :: MonadLock IO v => v a -> (a -> IO (a, b)) -> IO b
-defaultLockIOMutateM v f = mask $ \restore -> do
-  x      <- hold v
-  (y, z) <- restore (f x >>= evaluate) `onException` fill v x
-  fill v y    -- See "Parallel and Concurrent Programming in Haskell",
-  evaluate y  -- the "MVar as a Container for Shared State" section.
+-- | Default exception-unsafe 'mutateM' for 'MonadLock' entities.
+defaultLockUnsafeMutateM
+  :: MonadLock m v => v a -> (a -> m (a, b)) -> m b
+defaultLockUnsafeMutateM v f = do
+  x <- hold v
+  !(!y, z) <- f x
+  fill v y
   return z
-{-# INLINE defaultLockIOMutateM #-}
+{-# INLINE defaultLockUnsafeMutateM #-}
 
 -- | Default 'mutateM_' for 'MonadLock' 'IO' entities
 defaultLockIOMutateM_ :: MonadLock IO v => v a -> (a -> IO a) -> IO ()
@@ -253,33 +243,29 @@ defaultLockIOMutateM_ v f = mask $ \restore -> do
   return ()
 {-# INLINE defaultLockIOMutateM_ #-}
 
+-- | Default 'mutateM' for 'MonadLock' 'IO' entities.
+defaultLockIOMutateM :: MonadLock IO v => v a -> (a -> IO (a, b)) -> IO b
+defaultLockIOMutateM v f = mask $ \restore -> do
+  x      <- hold v
+  (y, z) <- restore (f x >>= evaluate) `onException` fill v x
+  fill v y    -- See "Parallel and Concurrent Programming in Haskell",
+  evaluate y  -- the "MVar as a Container for Shared State" section.
+  return z
+{-# INLINE defaultLockIOMutateM #-}
+
 -- Additional functions.
 
--- | Monadically mutate a variable and also return its old value
--- along with an additional value.
-postMutateM
-  :: MonadMutateM m n v => v a -> (a -> m (a, b)) -> n (a, b)
-postMutateM v f = mutateM v $ \x -> f x <&> \(y, z) -> (y, (x, z))
-{-# INLINE postMutateM #-}
+-- | Mutate a variable and also return its old value.
+postMutate_
+  :: MonadMutate m v => v a -> (a -> a) -> m a
+postMutate_ v f = mutate v $ \x -> f x & \y -> (y, x)
+{-# INLINE postMutate_ #-}
 
--- | Monadically mutate a variable and also return its new value
--- along with an additional value.
-preMutateM
-  :: MonadMutateM m n v => v a -> (a -> m (a, b)) -> n (a, b)
-preMutateM v f = mutateM v $ \x -> f x <&> \(y, z) -> (y, (y, z))
-{-# INLINE preMutateM #-}
-
--- | Monadically mutate a variable and also return its old value.
-postMutateM_
-  :: MonadMutateM m n v => v a -> (a -> m a) -> n a
-postMutateM_ v f = mutateM v $ \x -> f x <&> \y -> (y, x)
-{-# INLINE postMutateM_ #-}
-
--- | Monadically mutate a variable and also return its new value.
-preMutateM_
-  :: MonadMutateM m n v => v a -> (a -> m a) -> n a
-preMutateM_ v f = mutateM v $ \x -> f x <&> \y -> (y, y)
-{-# INLINE preMutateM_ #-}
+-- | Mutate a variable and also return its new value.
+preMutate_
+  :: MonadMutate m v => v a -> (a -> a) -> m a
+preMutate_ v f = mutate v $ \x -> f x & \y -> (y, y)
+{-# INLINE preMutate_ #-}
 
 -- | Mutate a variable and also return its old value
 -- along with an additional value.
@@ -295,17 +281,31 @@ preMutate
 preMutate v f = mutate v $ \x -> f x & \(y, z) -> (y, (y, z))
 {-# INLINE preMutate #-}
 
--- | Mutate a variable and also return its old value.
-postMutate_
-  :: MonadMutate m v => v a -> (a -> a) -> m a
-postMutate_ v f = mutate v $ \x -> f x & \y -> (y, x)
-{-# INLINE postMutate_ #-}
+-- | Monadically mutate a variable and also return its old value.
+postMutateM_
+  :: (MonadMutateM f m v, Functor f) => v a -> (a -> f a) -> m a
+postMutateM_ v f = mutateM v $ \x -> f x <&> \y -> (y, x)
+{-# INLINE postMutateM_ #-}
 
--- | Mutate a variable and also return its new value.
-preMutate_
-  :: MonadMutate m v => v a -> (a -> a) -> m a
-preMutate_ v f = mutate v $ \x -> f x & \y -> (y, y)
-{-# INLINE preMutate_ #-}
+-- | Monadically mutate a variable and also return its new value.
+preMutateM_
+  :: (MonadMutateM f m v, Functor f) => v a -> (a -> f a) -> m a
+preMutateM_ v f = mutateM v $ \x -> f x <&> \y -> (y, y)
+{-# INLINE preMutateM_ #-}
+
+-- | Monadically mutate a variable and also return its old value
+-- along with an additional value.
+postMutateM
+  :: (MonadMutateM f m v, Functor f) => v a -> (a -> f (a, b)) -> m (a, b)
+postMutateM v f = mutateM v $ \x -> f x <&> \(y, z) -> (y, (x, z))
+{-# INLINE postMutateM #-}
+
+-- | Monadically mutate a variable and also return its new value
+-- along with an additional value.
+preMutateM
+  :: (MonadMutateM f m v, Functor f) => v a -> (a -> f (a, b)) -> m (a, b)
+preMutateM v f = mutateM v $ \x -> f x <&> \(y, z) -> (y, (y, z))
+{-# INLINE preMutateM #-}
 
 -- `MonadTrans` instances.
 
@@ -343,13 +343,13 @@ instance (MonadTrans t, Monad (t m), MonadLock  m v) => MonadLock  (t m) v where
   isEmpty  = lift . isEmpty
   {-# INLINE isEmpty #-}
 
-instance (MonadTrans t, Monad (t m), MonadMutate  m v) => MonadMutate  (t m) v where
-  mutate = lift .* mutate
-  {-# INLINE mutate #-}
-
 instance (MonadTrans t, Monad (t m), MonadMutate_ m v) => MonadMutate_ (t m) v where
   mutate_ = lift .* mutate_
   {-# INLINE mutate_ #-}
+
+instance (MonadTrans t, Monad (t m), MonadMutate  m v) => MonadMutate  (t m) v where
+  mutate = lift .* mutate
+  {-# INLINE mutate #-}
 
 -- `IORef` instances.
 
@@ -369,21 +369,21 @@ instance MonadSwap  IO IORef where
   swap = defaultReadWriteSwap
   {-# INLINE swap #-}
 
-instance IO ~ io => MonadMutateM  io IO IORef where
-  mutateM = defaultReadWriteMutateM
-  {-# INLINE mutateM #-}
-
-instance IO ~ io => MonadMutateM_ io IO IORef where
-  mutateM_ = defaultReadWriteMutateM_
-  {-# INLINE mutateM_ #-}
+instance MonadMutate_ IO IORef where
+  mutate_ = defaultReadWriteMutate_
+  {-# INLINE mutate_ #-}
 
 instance MonadMutate  IO IORef where
   mutate = defaultReadWriteMutate
   {-# INLINE mutate #-}
 
-instance MonadMutate_ IO IORef where
-  mutate_ = defaultReadWriteMutate_
-  {-# INLINE mutate_ #-}
+instance IO ~ io => MonadMutateM_ io IO IORef where
+  mutateM_ = defaultReadWriteMutateM_
+  {-# INLINE mutateM_ #-}
+
+instance IO ~ io => MonadMutateM  io IO IORef where
+  mutateM = defaultReadWriteMutateM
+  {-# INLINE mutateM #-}
 
 -- `STRef s` instances.
 
@@ -403,21 +403,21 @@ instance MonadSwap  (ST s) (STRef s) where
   swap = defaultReadWriteSwap
   {-# INLINE swap #-}
 
-instance ST s ~ st_s => MonadMutateM  st_s (ST s) (STRef s) where
-  mutateM = defaultReadWriteMutateM
-  {-# INLINE mutateM #-}
-
-instance ST s ~ st_s => MonadMutateM_ st_s (ST s) (STRef s) where
-  mutateM_ = defaultReadWriteMutateM_
-  {-# INLINE mutateM_ #-}
+instance MonadMutate_ (ST s) (STRef s) where
+  mutate_ = defaultReadWriteMutate_
+  {-# INLINE mutate_ #-}
 
 instance MonadMutate  (ST s) (STRef s) where
   mutate = defaultReadWriteMutate
   {-# INLINE mutate #-}
 
-instance MonadMutate_ (ST s) (STRef s) where
-  mutate_ = defaultReadWriteMutate_
-  {-# INLINE mutate_ #-}
+instance ST s ~ st_s => MonadMutateM_ st_s (ST s) (STRef s) where
+  mutateM_ = defaultReadWriteMutateM_
+  {-# INLINE mutateM_ #-}
+
+instance ST s ~ st_s => MonadMutateM  st_s (ST s) (STRef s) where
+  mutateM = defaultReadWriteMutateM
+  {-# INLINE mutateM #-}
 
 -- `MVar` instances.
 
@@ -459,21 +459,21 @@ instance MonadSwap  IO MVar where
   swap = mask_ .* defaultLockUnsafeSwap
   {-# INLINE swap #-}
 
-instance IO ~ io => MonadMutateM io IO MVar where
-  mutateM = defaultLockIOMutateM
-  {-# INLINE mutateM #-}
-
-instance IO ~ io => MonadMutateM_ io IO MVar where
-  mutateM_ = defaultLockIOMutateM_
-  {-# INLINE mutateM_ #-}
+instance MonadMutate_ IO MVar where
+  mutate_ v f = mutateM_ v $ return . f
+  {-# INLINE mutate_ #-}
 
 instance MonadMutate IO MVar where
   mutate v f = mutateM v $ return . f
   {-# INLINE mutate #-}
 
-instance MonadMutate_ IO MVar where
-  mutate_ v f = mutateM_ v $ return . f
-  {-# INLINE mutate_ #-}
+instance IO ~ io => MonadMutateM_ io IO MVar where
+  mutateM_ = defaultLockIOMutateM_
+  {-# INLINE mutateM_ #-}
+
+instance IO ~ io => MonadMutateM io IO MVar where
+  mutateM = defaultLockIOMutateM
+  {-# INLINE mutateM #-}
 
 -- `TVar` instances.
 
@@ -493,21 +493,21 @@ instance MonadSwap  STM TVar where
   swap = defaultReadWriteSwap
   {-# INLINE swap #-}
 
-instance STM ~ stm => MonadMutateM  stm STM TVar where
-  mutateM = defaultReadWriteMutateM
-  {-# INLINE mutateM #-}
-
-instance STM ~ stm => MonadMutateM_ stm STM TVar where
-  mutateM_ = defaultReadWriteMutateM_
-  {-# INLINE mutateM_ #-}
+instance MonadMutate_ STM TVar where
+  mutate_ = defaultReadWriteMutate_
+  {-# INLINE mutate_ #-}
 
 instance MonadMutate  STM TVar where
   mutate = defaultReadWriteMutate
   {-# INLINE mutate #-}
 
-instance MonadMutate_ STM TVar where
-  mutate_ = defaultReadWriteMutate_
-  {-# INLINE mutate_ #-}
+instance STM ~ stm => MonadMutateM_ stm STM TVar where
+  mutateM_ = defaultReadWriteMutateM_
+  {-# INLINE mutateM_ #-}
+
+instance STM ~ stm => MonadMutateM  stm STM TVar where
+  mutateM = defaultReadWriteMutateM
+  {-# INLINE mutateM #-}
 
 instance MonadNew   IO TVar where
   new = newTVarIO
@@ -527,21 +527,21 @@ instance MonadSwap  IO TVar where
 
 -- Notice the absense of `MonadMutateM* IO IO TVar` instances.
 
-instance STM ~ stm => MonadMutateM  stm IO TVar where
-  mutateM = atomically .* mutateM
-  {-# INLINE mutateM #-}
-
-instance STM ~ stm => MonadMutateM_ stm IO TVar where
-  mutateM_ = atomically .* mutateM_
-  {-# INLINE mutateM_ #-}
+instance MonadMutate_ IO TVar where
+  mutate_ = atomically .* mutate_
+  {-# INLINE mutate_ #-}
 
 instance MonadMutate  IO TVar where
   mutate = atomically .* mutate
   {-# INLINE mutate #-}
 
-instance MonadMutate_ IO TVar where
-  mutate_ = atomically .* mutate_
-  {-# INLINE mutate_ #-}
+instance STM ~ stm => MonadMutateM_ stm IO TVar where
+  mutateM_ = atomically .* mutateM_
+  {-# INLINE mutateM_ #-}
+
+instance STM ~ stm => MonadMutateM  stm IO TVar where
+  mutateM = atomically .* mutateM
+  {-# INLINE mutateM #-}
 
 -- `TMVar` instances.
 
@@ -583,21 +583,21 @@ instance MonadSwap  STM TMVar where
   swap = defaultLockUnsafeSwap
   {-# INLINE swap #-}
 
-instance STM ~ stm => MonadMutateM  stm STM TMVar where
-  mutateM = defaultLockUnsafeMutateM
-  {-# INLINE mutateM #-}
-
-instance STM ~ stm => MonadMutateM_ stm STM TMVar where
-  mutateM_ = defaultLockUnsafeMutateM_
-  {-# INLINE mutateM_ #-}
+instance MonadMutate_ STM TMVar where
+  mutate_ = defaultLockUnsafeMutate_
+  {-# INLINE mutate_ #-}
 
 instance MonadMutate  STM TMVar where
   mutate = defaultLockUnsafeMutate
   {-# INLINE mutate #-}
 
-instance MonadMutate_ STM TMVar where
-  mutate_ = defaultLockUnsafeMutate_
-  {-# INLINE mutate_ #-}
+instance STM ~ stm => MonadMutateM_ stm STM TMVar where
+  mutateM_ = defaultLockUnsafeMutateM_
+  {-# INLINE mutateM_ #-}
+
+instance STM ~ stm => MonadMutateM  stm STM TMVar where
+  mutateM = defaultLockUnsafeMutateM
+  {-# INLINE mutateM #-}
 
 instance MonadNew   IO TMVar where
   new = newTMVarIO
@@ -637,30 +637,30 @@ instance MonadSwap  IO TMVar where
   swap = atomically .* swap
   {-# INLINE swap #-}
 
--- Notice the presense of `MonadMutateM* IO TMVar` instances.
--- These are the direct counterparts of the corresponding functions
--- defined over `MVar`s.
-
-instance MonadMutateM  STM IO TMVar where
-  mutateM = atomically .* mutateM
-  {-# INLINE mutateM #-}
-
-instance MonadMutateM_ STM IO TMVar where
-  mutateM_ = atomically .* mutateM_
-  {-# INLINE mutateM_ #-}
-
-instance MonadMutateM  IO  IO TMVar where
-  mutateM = defaultLockIOMutateM
-  {-# INLINE mutateM #-}
-
-instance MonadMutateM_ IO  IO TMVar where
-  mutateM_ = defaultLockIOMutateM_
-  {-# INLINE mutateM_ #-}
+instance MonadMutate_ IO TMVar where
+  mutate_ = atomically .* mutate_
+  {-# INLINE mutate_ #-}
 
 instance MonadMutate  IO TMVar where
   mutate = atomically .* mutate
   {-# INLINE mutate #-}
 
-instance MonadMutate_ IO TMVar where
-  mutate_ = atomically .* mutate_
-  {-# INLINE mutate_ #-}
+instance MonadMutateM_ STM IO TMVar where
+  mutateM_ = atomically .* mutateM_
+  {-# INLINE mutateM_ #-}
+
+instance MonadMutateM  STM IO TMVar where
+  mutateM = atomically .* mutateM
+  {-# INLINE mutateM #-}
+
+-- Notice the presense of `MonadMutateM* IO TMVar` instances.
+-- These are the direct counterparts of the corresponding functions
+-- defined over `MVar`s.
+
+instance MonadMutateM_ IO  IO TMVar where
+  mutateM_ = defaultLockIOMutateM_
+  {-# INLINE mutateM_ #-}
+
+instance MonadMutateM  IO  IO TMVar where
+  mutateM = defaultLockIOMutateM
+  {-# INLINE mutateM #-}
