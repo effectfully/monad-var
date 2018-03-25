@@ -8,8 +8,8 @@ module MonadVar.Lens
   ) where
 
 import           MonadVar
+import           MonadVar.Compat
 import           Data.Functor.Identity
-import           Data.Functor.Const
 import           Data.Functor.Compose
 
 infixl 8 ^.
