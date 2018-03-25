@@ -14,7 +14,8 @@ import           Data.Functor.Identity
 import           Data.Functor.Compose
 
 infixl 8 ^.
-infixr 9 ./, .!
+infixr 8 ./
+infixr 9 .!
 
 -- We define our own lenses just to not depend on anything.
 type LensLike f s t a b = (a -> f b) -> s -> f t
