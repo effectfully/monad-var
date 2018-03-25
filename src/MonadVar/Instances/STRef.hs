@@ -36,4 +36,3 @@ instance ST s ~ st_s => MonadMutateM_ st_s (ST s) (STRef s) where
 instance ST s ~ st_s => MonadMutateM  st_s (ST s) (STRef s) where
   mutateM = defaultReadWriteMutateM
   {-# INLINE mutateM #-}
-

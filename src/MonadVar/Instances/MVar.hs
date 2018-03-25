@@ -5,57 +5,56 @@ import           MonadVar.Classes
 import           MonadVar.Default
 import           Control.Concurrent.MVar
 
-instance MonadNew   IO MVar where
-  new = newMVar
+instance MonadIO m => MonadNew   m MVar where
+  new = liftIO . newMVar
   {-# INLINE new #-}
 
-instance MonadLock  IO MVar where
-  hold     = takeMVar
+instance MonadIO m => MonadLock  m MVar where
+  hold     = liftIO . takeMVar
   {-# INLINE hold #-}
 
-  fill     = putMVar
+  fill     = liftIO .* putMVar
   {-# INLINE fill #-}
 
-  tryHold  = tryTakeMVar
+  tryHold  = liftIO . tryTakeMVar
   {-# INLINE tryHold #-}
 
-  tryFill  = tryPutMVar
+  tryFill  = liftIO .* tryPutMVar
   {-# INLINE tryFill #-}
 
-  tryRead  = tryReadMVar
+  tryRead  = liftIO . tryReadMVar
   {-# INLINE tryRead #-}
 
-  newEmpty = newEmptyMVar
+  newEmpty = liftIO newEmptyMVar
   {-# INLINE newEmpty #-}
 
-  isEmpty  = isEmptyMVar
+  isEmpty  = liftIO . isEmptyMVar
   {-# INLINE isEmpty #-}
 
-instance MonadRead  IO MVar where
-  read = readMVar
+instance MonadIO m => MonadRead  m MVar where
+  read = liftIO . readMVar
   {-# INLINE read #-}
 
-instance MonadWrite IO MVar where
-  write = mask_ .* defaultLockUnsafeWrite
+instance MonadIO m => MonadWrite m MVar where
+  write = liftIO .* mask_ .* defaultLockUnsafeWrite
   {-# INLINE write #-}
 
-instance MonadSwap  IO MVar where
-  swap = mask_ .* defaultLockUnsafeSwap
+instance MonadIO m => MonadSwap  m MVar where
+  swap = liftIO .* mask_ .* defaultLockUnsafeSwap
   {-# INLINE swap #-}
 
-instance MonadMutate_ IO MVar where
-  mutate_ v f = mutateM_ v $ return . f
+instance MonadIO m => MonadMutate_ m MVar where
+  mutate_ v f = liftIO . mutateM_ v $ return . f
   {-# INLINE mutate_ #-}
 
-instance MonadMutate IO MVar where
-  mutate v f = mutateM v $ return . f
+instance MonadIO m => MonadMutate  m MVar where
+  mutate v f = liftIO . mutateM v $ return . f
   {-# INLINE mutate #-}
 
 instance IO ~ io => MonadMutateM_ io IO MVar where
   mutateM_ = defaultLockIOMutateM_
   {-# INLINE mutateM_ #-}
 
-instance IO ~ io => MonadMutateM io IO MVar where
+instance IO ~ io => MonadMutateM  io IO MVar where
   mutateM = defaultLockIOMutateM
   {-# INLINE mutateM #-}
-

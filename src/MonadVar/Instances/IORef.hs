@@ -5,28 +5,28 @@ import           MonadVar.Classes
 import           MonadVar.Default
 import           Data.IORef
 
-instance MonadNew   IO IORef where
-  new = newIORef
+instance MonadIO m => MonadNew   m IORef where
+  new = liftIO . newIORef
   {-# INLINE new #-}
 
-instance MonadRead  IO IORef where
-  read = readIORef
+instance MonadIO m => MonadRead  m IORef where
+  read = liftIO . readIORef
   {-# INLINE read #-}
 
-instance MonadWrite IO IORef where
-  write = writeIORef
+instance MonadIO m => MonadWrite m IORef where
+  write = liftIO .* writeIORef
   {-# INLINE write #-}
 
-instance MonadSwap  IO IORef where
-  swap = defaultReadWriteSwap
+instance MonadIO m => MonadSwap  m IORef where
+  swap = liftIO .* defaultReadWriteSwap
   {-# INLINE swap #-}
 
-instance MonadMutate_ IO IORef where
-  mutate_ = defaultReadWriteMutate_
+instance MonadIO m => MonadMutate_ m IORef where
+  mutate_ = liftIO .* defaultReadWriteMutate_
   {-# INLINE mutate_ #-}
 
-instance MonadMutate  IO IORef where
-  mutate = defaultReadWriteMutate
+instance MonadIO m => MonadMutate  m IORef where
+  mutate = liftIO .* defaultReadWriteMutate
   {-# INLINE mutate #-}
 
 instance IO ~ io => MonadMutateM_ io IO IORef where
@@ -36,4 +36,3 @@ instance IO ~ io => MonadMutateM_ io IO IORef where
 instance IO ~ io => MonadMutateM  io IO IORef where
   mutateM = defaultReadWriteMutateM
   {-# INLINE mutateM #-}
-

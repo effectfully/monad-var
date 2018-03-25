@@ -120,4 +120,3 @@ instance MonadMutateM_ IO  IO TMVar where
 instance MonadMutateM  IO  IO TMVar where
   mutateM = defaultLockIOMutateM
   {-# INLINE mutateM #-}
-
