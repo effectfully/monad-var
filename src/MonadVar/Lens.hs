@@ -7,8 +7,9 @@ module MonadVar.Lens
   , _Var
   ) where
 
-import           MonadVar
+import           MonadVar.Prelude
 import           MonadVar.Compat
+import           MonadVar.Classes
 import           Data.Functor.Identity
 import           Data.Functor.Compose
 
